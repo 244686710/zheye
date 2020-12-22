@@ -1,13 +1,13 @@
 <template>
   <div class="row">
-    <div class="col-4 mt-2" v-for="column in columnList" :key="column.id">
+    <div class="col-4 mt-2" v-for="column in columnList" :key="column._id">
       <div class="card h-100 shadow text-center">
         <div class="card-body">
-          <img  class="border-light rounded-circle my-3 w-25" :src="column.avatar" :alt="column.title">
+          <img  class="border-light rounded-circle my-3" :src="column.avatar && column.avatar.url" :alt="column.title">
 
           <h5 class="card-title">{{column.title}}</h5>
           <div class="card-text text-left mb-2">{{column.description}}</div>
-          <a href="#" class="btn btn-outline-primary">進入專欄</a>
+          <router-link :to="{name: 'Column', params: {id: column._id}}" class="btn btn-outline-primary">進入專欄</router-link>
         </div>
       </div>
     </div>
@@ -16,12 +16,7 @@
 
 <script lang="ts">
 import { defineComponent, PropType, computed } from 'vue'
-export interface ColumnProps{
-  id: number;
-  title: string;
-  avatar?: string;
-  description: string;
-}
+import { ColumnProps } from '../store'
 
 export default defineComponent({
   name: 'ColumnList',
@@ -35,7 +30,9 @@ export default defineComponent({
     const columnList = computed(() => {
       return props.list.map(column => {
         if (!column.avatar) {
-          column.avatar = require('@/assets/logo.png')
+          column.avatar = {
+            url: require('@/assets/logo.png')
+          }
         }
         return column
       })
@@ -43,14 +40,14 @@ export default defineComponent({
     return {
       columnList
     }
-    // return {
-    //   list: props.list
-    // }
   }
 
 })
 </script>
 
-<style>
-
+<style scoped>
+.card-body img {
+  width: 50px;
+  height: 50px;
+}
 </style>

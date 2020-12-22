@@ -28,7 +28,6 @@ export default defineComponent({
     const isClickOutside = useClickOutside(dropdownRef)
 
     watch(isClickOutside, () => {
-      console.log(isClickOutside.value)
       if (isOpen.value && isClickOutside.value) {
         isOpen.value = false
       }
