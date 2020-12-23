@@ -1,24 +1,30 @@
 import { createStore, Commit } from 'vuex'
 import axios from 'axios'
 
+export interface ResponseType<T = {}> {
+  code: number;
+  msg: string;
+  data: T;
+}
 export interface PostProps {
-  _id: string;
+  _id?: string;
   title: string;
   excerpt?: string;
   content?: string;
-  image?: ImageProps;
-  createdAt: string;
+  image?: string;
+  createdAt?: string;
   column: string;
+  author: string;
 }
 
 export interface UserProps {
   isLogin: boolean;
   nickName?: string;
   id?: number;
-  columnId?: number;
+  column?: number;
 }
 
-interface ImageProps {
+export interface ImageProps {
   _id?: string;
   url?: string;
   createdAt?: string;
@@ -46,6 +52,7 @@ export interface GlobalDataProps {
 const getAndCommit = async (url: string, mutationName: string, commit: Commit) => {
   const { data } = await axios.get(url)
   commit(mutationName, data)
+  return data
 }
 const postAndCommit = async (url: string, mutationName: string, commit: Commit, payload: any) => {
   const { data } = await axios.post(url, payload)
@@ -72,6 +79,7 @@ const store = createStore<GlobalDataProps>({
       state.columns = rawData.data.list
     },
     fetchColumn (state, rawData) {
+      debugger
       state.columns = [rawData.data]
     },
     fetchPosts (state, rawData) {
@@ -91,20 +99,29 @@ const store = createStore<GlobalDataProps>({
     },
     setError (state, e: GlobalErrorProps) {
       state.error = e
+    },
+    logout (state) {
+      state.token = ''
+      localStorage.removeItem('token')
+      // 删除 ajax 头部设置的Authorization
+      delete axios.defaults.headers.common.Authorization
     }
   },
   actions: {
     fetchColumns ({ commit }) {
-      getAndCommit('/columns', 'fetchColumns', commit)
+      return getAndCommit('/columns', 'fetchColumns', commit)
     },
     fetchColumn ({ commit }, cid) {
-      getAndCommit(`/columns/${cid}`, 'fetchColumn', commit)
+      return getAndCommit(`/columns/${cid}`, 'fetchColumn', commit)
     },
     fetchPosts ({ commit }, cid) {
-      getAndCommit(`/columns/${cid}/posts`, 'fetchPosts', commit)
+      return getAndCommit(`/columns/${cid}/posts`, 'fetchPosts', commit)
     },
     login ({ commit }, payload) {
       return postAndCommit('/user/login', 'login', commit, payload)
+    },
+    createPost ({ commit }, payload) {
+      return postAndCommit('/posts', 'createPost', commit, payload)
     },
     fetchCurrentUser ({ commit }) {
       getAndCommit('/user/current', 'fetchCurrentUser', commit)
@@ -119,9 +136,11 @@ const store = createStore<GlobalDataProps>({
   getters: {
 
     getColumnById: (state) => (id: string) => {
-      return state.columns.find(c => c._id === id)
+      console.log(id)
+      return state.columns.find(c => c._id === id) || {}
     },
     getPostsByCid: (state) => (cid: string) => {
+      console.log(cid)
       return state.posts.filter(post => post.column === cid)
     }
   }

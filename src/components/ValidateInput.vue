@@ -27,8 +27,9 @@ import { emitter } from './ValidateForm.vue'
 const emailReg = /^[A-Za-z0-9\u4e00-\u9fa5]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$/
 
 export interface RuleProp {
-  type: 'required' | 'email';
+  type: 'required' | 'email' | 'custom';
   message: string;
+  validator?: () => boolean;
 }
 export type RulesProp = RuleProp[]
 export type TagType = 'input | textarea'
@@ -64,6 +65,9 @@ export default defineComponent({
               break
             case 'email':
               passed = emailReg.test(inputRef.val)
+              break
+            case 'custom':
+              passed = rule.validator ? rule.validator() : true
               break
             default:
               break
