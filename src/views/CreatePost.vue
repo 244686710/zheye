@@ -1,11 +1,12 @@
 <template>
   <div class="create-post-page">
-    <h4>新建文章</h4>
+    <h4>{{isEditMode ? '编辑文章': '新建文章'}}</h4>
     <uploader
       action="/upload"
       class="d-flex justify-content-center align-items-center bg-light text-secondary w-100 my-4"
       :beforeUpload="uploadCheck"
       @file-uploaded="handleFileUploaded"
+      :uploaded="uploadedData"
     >
     <h2>点击上传头像</h2>
     <template #loading>
@@ -17,7 +18,7 @@
       </div>
     </template>
     <template #uploaded="slotProps">
-      <img :src="slotProps.uploadedData.data.url">
+      <img :src="slotProps.uploadedData.url">
     </template>
 
     </uploader>
@@ -33,16 +34,16 @@
           v-model="contentVal" placeholder="请输入文章详情" tag="textarea"></validate-input>
       </div>
       <template #submit>
-        <button class="btn btn-primary btn-large">发表文章</button>
+        <button class="btn btn-primary btn-large">{{isEditMode ? '更新文章' : '新建文章'}}</button>
       </template>
     </validate-form>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue'
+import { defineComponent, ref, onMounted } from 'vue'
 import { useStore } from 'vuex'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { PostProps, ResponseType, ImageProps } from '../store'
 import axios from 'axios'
 import ValidateForm from '../components/ValidateForm.vue'
@@ -57,9 +58,13 @@ export default defineComponent({
   setup () {
     const titleVal = ref('')
     const contentVal = ref('')
+    const uploadedData = ref()
     const store = useStore()
     let imageId = ''
     const router = useRouter()
+    const route = useRoute()
+
+    const isEditMode = !!route.query.id
     const onFormSubmit = (result: boolean) => {
       if (result) {
         const { column, _id } = store.state.user
@@ -73,7 +78,13 @@ export default defineComponent({
           if (imageId) {
             newPost.image = imageId
           }
-          store.dispatch('createPost', newPost).then(() => {
+          // 判断是新增还是编辑
+          const actionName = isEditMode ? 'updatePost' : 'createPost'
+          const sendData = isEditMode ? {
+            id: route.query.id,
+            payload: newPost
+          } : newPost
+          store.dispatch(actionName, sendData).then(() => {
             createMessage('发表成功，2秒后跳转到文章', 'success')
             setTimeout(() => {
               router.push({ name: 'Column', params: { id: column } })
@@ -108,7 +119,6 @@ export default defineComponent({
     }
     const uploadCheck = (file: File) => {
       const result = beforUploadCheck(file, { format: ['image/jpeg', 'image/png'], size: 1 })
-      debugger
       const { passed, error } = result
       if (error === 'format') {
         createMessage('上传图片只能是 JPG/PNG 格式！', 'error')
@@ -123,6 +133,18 @@ export default defineComponent({
         imageId = rawData.data._id
       }
     }
+    onMounted(() => {
+      if (isEditMode) {
+        store.dispatch('fetchPost', route.query.id).then((rawData: ResponseType<PostProps>) => {
+          const currentPost = rawData.data
+          if (currentPost.image) {
+            uploadedData.value = currentPost.image
+          }
+          titleVal.value = currentPost.title
+          contentVal.value = currentPost.content || ''
+        })
+      }
+    })
     return {
       onFormSubmit,
       titleVal,
@@ -131,7 +153,9 @@ export default defineComponent({
       contentRules,
       handleFileChange,
       uploadCheck,
-      handleFileUploaded
+      handleFileUploaded,
+      uploadedData,
+      isEditMode
     }
   }
 })

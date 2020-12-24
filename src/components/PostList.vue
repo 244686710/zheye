@@ -2,7 +2,12 @@
 <div class="post-list" >
   <article class="card mb-3 shadow" v-for="post in list" :key="post._id">
     <div class="card-body w-100">
-      <h4>{{post.title}}</h4>
+      <router-link :to="{
+        name: 'Posts',
+        params: {id: post._id}
+      }">
+        <h4>{{post.title}}</h4>
+      </router-link>
       <div class="row my-3 align-items-center">
         <div class="col-3">
           <img :src="post.image && post.image.url" alt="" class="w-100">

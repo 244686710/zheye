@@ -24,7 +24,6 @@ export default defineComponent({
   setup () {
     const route = useRoute()
     const store = useStore<GlobalDataProps>()
-
     const currentId = route.params.id
     onMounted(() => {
       store.dispatch('fetchColumn', currentId)

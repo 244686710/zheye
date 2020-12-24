@@ -1,10 +1,15 @@
 import { createStore, Commit } from 'vuex'
-import axios from 'axios'
-
+import axios, { AxiosRequestConfig } from 'axios'
+import { arrToObj, objToArr } from '../helper'
+import router from '@/router'
 export interface ResponseType<T = {}> {
   code: number;
   msg: string;
   data: T;
+}
+
+interface ListPorps<P> {
+  [id: string]: P;
 }
 export interface PostProps {
   _id?: string;
@@ -14,13 +19,13 @@ export interface PostProps {
   image?: string;
   createdAt?: string;
   column: string;
-  author: string;
+  author: string | UserProps;
 }
 
 export interface UserProps {
   isLogin: boolean;
   nickName?: string;
-  id?: number;
+  _id?: number;
   column?: number;
 }
 
@@ -43,8 +48,14 @@ export interface GlobalErrorProps {
 export interface GlobalDataProps {
   error: GlobalErrorProps;
   loading: boolean;
-  columns: ColumnProps[];
-  posts: PostProps[];
+  columns: {
+    data: ListPorps<ColumnProps>;
+    isLoaded: boolean;
+  };
+  posts: {
+    data: ListPorps<PostProps>;
+    loadedColumns: string[];
+  };
   token: string;
   user: UserProps;
 }
@@ -59,6 +70,17 @@ const postAndCommit = async (url: string, mutationName: string, commit: Commit, 
   commit(mutationName, data)
   return data
 }
+
+const aysncAndCommit = async (url: string, mutationName: string,
+  commit: Commit, config: AxiosRequestConfig = { method: 'GET' }, extraData?: any) => {
+  const { data } = await axios(url, config)
+  if (extraData) {
+    commit(mutationName, { data, extraData })
+  } else {
+    commit(mutationName, data)
+  }
+  return data
+}
 const store = createStore<GlobalDataProps>({
   state: {
     error: {
@@ -66,24 +88,36 @@ const store = createStore<GlobalDataProps>({
     },
     token: localStorage.getItem('token') || '',
     loading: false,
-    columns: [],
-    posts: [],
+    columns: {
+      data: {}, isLoaded: false
+    },
+    posts: {
+      data: {},
+      loadedColumns: []
+    },
     user: { isLogin: false }
   },
   mutations: {
 
     createPost (state, newPost) {
-      state.posts.push(newPost)
+      state.posts.data[newPost._id] = newPost
     },
     fetchColumns (state, rawData) {
-      state.columns = rawData.data.list
+      state.columns.data = arrToObj(rawData.data.list)
+      state.columns.isLoaded = true
     },
     fetchColumn (state, rawData) {
-      debugger
-      state.columns = [rawData.data]
+      state.columns.data[rawData.data._id] = rawData.data
     },
-    fetchPosts (state, rawData) {
-      state.posts = rawData.data.list
+    fetchPosts (state, { data: rawData, extraData: columnId }) {
+      state.posts.data = {
+        ...state.posts.data,
+        ...arrToObj(rawData.data.list)
+      }
+      state.posts.loadedColumns.push(columnId)
+    },
+    fetchPost (state, { data }) {
+      state.posts.data[data._id] = data
     },
     setLoading (state, status) {
       state.loading = status
@@ -105,17 +139,32 @@ const store = createStore<GlobalDataProps>({
       localStorage.removeItem('token')
       // 删除 ajax 头部设置的Authorization
       delete axios.defaults.headers.common.Authorization
+      state.user = { isLogin: false }
+      router.push('/')
+    },
+
+    deletePost (state, { data }) {
+      delete state.posts.data[data._id]
+    },
+    updatePost (state, { data }) {
+      state.posts.data[data._id] = data
     }
   },
   actions: {
-    fetchColumns ({ commit }) {
-      return getAndCommit('/columns', 'fetchColumns', commit)
+    fetchColumns ({ commit, state }) {
+      if (!state.columns.isLoaded) {
+        return getAndCommit('/columns', 'fetchColumns', commit)
+      }
     },
-    fetchColumn ({ commit }, cid) {
-      return getAndCommit(`/columns/${cid}`, 'fetchColumn', commit)
+    fetchColumn ({ state, commit }, cid) {
+      if (!state.columns.data[cid]) {
+        return getAndCommit(`/columns/${cid}`, 'fetchColumn', commit)
+      }
     },
-    fetchPosts ({ commit }, cid) {
-      return getAndCommit(`/columns/${cid}/posts`, 'fetchPosts', commit)
+    fetchPosts ({ state, commit }, cid) {
+      if (!state.posts.loadedColumns.includes(cid)) {
+        return aysncAndCommit(`/columns/${cid}/posts`, 'fetchPosts', commit, { method: 'get' }, cid)
+      }
     },
     login ({ commit }, payload) {
       return postAndCommit('/user/login', 'login', commit, payload)
@@ -130,18 +179,39 @@ const store = createStore<GlobalDataProps>({
       return dispatch('login', loginData).then(() => {
         return dispatch('fetchCurrentUser')
       })
+    },
+    fetchPost ({ state, commit }, id) {
+      const currentPost = state.posts.data[id]
+      if (!currentPost || !currentPost.content) {
+        return aysncAndCommit(`/posts/${id}`, 'fetchPost', commit, { method: 'get' })
+      } else {
+        return Promise.resolve({ data: currentPost })
+      }
+    },
+    deletePost ({ commit }, id) {
+      return aysncAndCommit(`/posts/${id}`, 'deletePost', commit, { method: 'delete' })
+    },
+    updatePost ({ commit }, { id, payload }) {
+      return aysncAndCommit(`/posts/${id}`, 'updatePost', commit, {
+        method: 'patch',
+        data: payload
+      })
     }
 
   },
   getters: {
-
+    getColumns: (state) => {
+      return objToArr(state.columns.data)
+    },
     getColumnById: (state) => (id: string) => {
-      console.log(id)
-      return state.columns.find(c => c._id === id) || {}
+      return state.columns.data[id] || {}
     },
     getPostsByCid: (state) => (cid: string) => {
       console.log(cid)
-      return state.posts.filter(post => post.column === cid)
+      return objToArr(state.posts.data).filter(post => post.column === cid)
+    },
+    getCurrentPost: (state) => (id: string) => {
+      return state.posts.data[id]
     }
   }
 })

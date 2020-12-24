@@ -22,7 +22,7 @@ const routes: Array<RouteRecordRaw> = [
   },
   {
     path: '/create',
-    name: 'Crate',
+    name: 'Create',
     component: () => import('../views/CreatePost.vue'),
     meta: {
       requiredLogin: true
@@ -32,6 +32,11 @@ const routes: Array<RouteRecordRaw> = [
     path: '/column/:id',
     name: 'Column',
     component: () => import('../views/ColumnDetail.vue')
+  },
+  {
+    path: '/posts/:id',
+    name: 'Posts',
+    component: () => import('../views/PostDetail.vue')
   }
 ]
 
