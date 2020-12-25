@@ -10,6 +10,9 @@
       </div>
     </div>
     <post-list :list="list"></post-list>
+     <button class="btn btn-outline-primary mt-2 mb-5 mx-auto btn-block w-25"
+      @click="loadMorePage" v-if="!isLastPage"
+    >加载更多</button>
   </div>
 </template>
 
@@ -19,6 +22,7 @@ import { useRoute } from 'vue-router'
 import { useStore } from 'vuex'
 import { GlobalDataProps } from '../store'
 import PostList from '../components/PostList.vue'
+import useLoadMore from '../hooks/useLoadMore'
 export default defineComponent({
   components: { PostList },
   setup () {
@@ -27,13 +31,27 @@ export default defineComponent({
     const currentId = route.params.id
     onMounted(() => {
       store.dispatch('fetchColumn', currentId)
-      store.dispatch('fetchPosts', currentId)
+      store.dispatch('fetchPosts', { currentId, pageSize: 2, currentPage: 1 })
     })
+    if (currentId) {
+
+    }
+    const total = computed(() => (store.state.posts.loadedColumns[currentId as string] && store.state.posts.loadedColumns[currentId as string].total) || 0)
+    const currentPage = computed(() => store.state.posts.loadedColumns[currentId as string] && store.state.posts.loadedColumns[currentId as string].currentPage)
+
+    const { isLastPage, loadMorePage } = useLoadMore('fetchPosts', total, {
+      currentId,
+      pageSize: 2,
+      currentPage: currentPage.value ? currentPage.value + 1 : 2
+    })
+    // console.log(isLastPage, loadMorePage)
     const column = computed(() => store.getters.getColumnById(currentId))
     const list = computed(() => store.getters.getPostsByCid(currentId))
     return {
       column,
-      list
+      list,
+      loadMorePage,
+      isLastPage
     }
   }
 })
